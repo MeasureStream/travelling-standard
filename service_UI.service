@@ -1,0 +1,39 @@
+[Unit]
+Description=Interfaccia grafica Raspberry (Kiosk UI)
+After=graphical.target systemd-user-sessions.service
+Wants=graphical.target
+
+[Service]
+Type=simple
+
+# Utente che deve eseguire lo script
+User=marco
+
+# Directory di lavoro (dove risiede lo script)
+WorkingDirectory=/home/marco/Desktop
+
+# Avvio ritardato per dare tempo al server grafico di inizializzarsi
+ExecStartPre=/bin/sleep 10
+
+# Comando di esecuzione
+ExecStart=/usr/bin/python3 /home/marco/Desktop/kiosk_qt_pyside_6.py
+
+# Variabili d'ambiente necessarie
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/marco/.Xauthority
+
+# Qt: seleziona piattaforma di rendering
+# (usa 'xcb' per X11, oppure 'wayland' se stai usando Wayland)
+Environment=QT_QPA_PLATFORM=xcb
+Environment=XDG_RUNTIME_DIR=/tmp
+
+# Politica di riavvio automatica
+Restart=on-failure
+RestartSec=5
+
+# Log
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target
