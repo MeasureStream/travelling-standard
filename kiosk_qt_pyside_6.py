@@ -1,3 +1,4 @@
+marco@Controller:~$ cat kiosk_qt_pyside_6.py 
 #!/usr/bin/env python3
 """
 Kiosk-style Qt application (PySide6) for Raspberry Pi
@@ -118,8 +119,14 @@ class KioskWindow(QWidget):
     def __init__(self, service_client: ServiceClient):
         super().__init__()
         self.service_client = service_client
+
+        self.setFixedSize(800, 480)
+
         self.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground, False)
+
+        # Nasconde il cursore direttamente
+        self.setCursor(Qt.BlankCursor)
 
         self.init_ui()
         # connect service signals
@@ -328,3 +335,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
