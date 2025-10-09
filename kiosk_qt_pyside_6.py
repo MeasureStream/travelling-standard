@@ -181,26 +181,26 @@ class KioskWindow(QWidget):
         main_layout.addWidget(self.stack, stretch=1)
 
         # footer (small help text)
-        footer = QLabel("Tocca una voce per procedere — usa il pulsante Indietro per tornare")
-        footer.setAlignment(Qt.AlignCenter)
-        footer.setObjectName("footer")
-        main_layout.addWidget(footer)
+        #footer = QLabel("Tocca una voce per procedere — usa il pulsante Indietro per tornare")
+        #footer.setAlignment(Qt.AlignCenter)
+        #footer.setObjectName("footer")
+        #main_layout.addWidget(footer)
 
         # footer (small help text + quit button)
-        footer_layout = QHBoxLayout()
-        footer = QLabel("Tocca una voce per procedere — usa 'Quit' per uscire in sviluppo")
-        footer.setAlignment(Qt.AlignCenter)
-        footer.setObjectName("footer")
+        #footer_layout = QHBoxLayout()
+        #footer = QLabel("Tocca una voce per procedere — usa 'Quit' per uscire in sviluppo")
+        #footer.setAlignment(Qt.AlignCenter)
+        #footer.setObjectName("footer")
 
-        quit_btn = QPushButton("Quit")
-        quit_btn.setFixedHeight(40)
-        quit_btn.setFixedWidth(100)
-        quit_btn.clicked.connect(QApplication.instance().quit)
+        #quit_btn = QPushButton("Quit")
+        #quit_btn.setFixedHeight(40)
+        #quit_btn.setFixedWidth(100)
+        #quit_btn.clicked.connect(QApplication.instance().quit)
 
-        footer_layout.addWidget(footer)
-        footer_layout.addStretch(1)
-        footer_layout.addWidget(quit_btn)
-        main_layout.addLayout(footer_layout)
+        #footer_layout.addWidget(footer)
+        #footer_layout.addStretch(1)
+        #footer_layout.addWidget(quit_btn)
+        #main_layout.addLayout(footer_layout)
 
 
         # apply style
