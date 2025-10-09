@@ -81,6 +81,10 @@ def raspberry_pixmap(size=80):
     This avoids external image file dependencies. You can replace this
     function to load an external PNG/SVG if you prefer.
     """
+    path = "./assets/pi-logo50x70.png"
+    pix =  QPixmap(path)
+    if not pix.isNull():
+        return pix
     w = size
     h = size
     pix = QPixmap(w, h)
