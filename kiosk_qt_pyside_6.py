@@ -216,7 +216,7 @@ class KioskWindow(QWidget):
         # create 3 big placeholders to match sketch
         for i in range(3):
             btn = QPushButton(f"Opzione {i+1}")
-            btn.setFixedHeight(96)
+            btn.setFixedHeight(60)
             btn.setObjectName("menuButton")
             btn.clicked.connect(self.on_option_clicked)
             layout.addWidget(btn)
