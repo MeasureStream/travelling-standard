@@ -13,24 +13,35 @@ Install: pip3 install PySide6
 This is a single-file example intended as a starting point. Replace the
 ServiceClient.fetch_* implementations with real network calls later.
 """
+
+import signal
 import sys
 import textwrap
-from PySide6.QtCore import Qt, QSize, QTimer, Signal, QObject
-from PySide6.QtGui import QPixmap, QPainter, QFont
-from PySide6.QtWidgets import (
-    QApplication,
-    QWidget,
-    QVBoxLayout,
-    QLabel,
-    QPushButton,
-    QStackedWidget,
-    QHBoxLayout,
-    QSpacerItem,
-    QSizePolicy,
-    QMessageBox,
-)
+
+import serial.tools.list_ports
+from PySide6.QtCore import QObject, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QFont, QPainter, QPixmap
+from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QMessageBox,
+                               QProgressBar, QPushButton, QSizePolicy,
+                               QSpacerItem, QStackedWidget, QVBoxLayout,
+                               QWidget)
+
+import calibration_suite.config as config
+from calibration_suite import CalibrationController
 
 DEBUG = True
+
+
+def find_fluke_port():
+    """Restituisce il device path del Fluke trovato o None se non presente."""
+    ports = serial.tools.list_ports.comports()
+    for port in ports:
+        if (port.vid == config.FLUKE_VID) and (port.pid == config.FLUKE_PID):
+            print(f"[INFO] Fluke trovato: {port.device} ({port.description})")
+            return port.device
+    print("[WARN] Nessun Fluke trovato!")
+    return None
+
 
 # ------------------------
 # Simple service client stub
@@ -57,11 +68,16 @@ class ServiceClient(QObject):
         In production, do network IO on a worker thread and emit options_updated.
         """
         # Simulate network delay using QTimer singleShot (non-blocking)
-        QTimer.singleShot(600, lambda: self.options_updated.emit([
-            {"id": "thermal", "title": "Taratura Termica"},
-            {"id": "fw", "title": "FW Update"},
-            {"id": "status", "title": "Dev. Status"},
-        ]))
+        QTimer.singleShot(
+            600,
+            lambda: self.options_updated.emit(
+                [
+                    {"id": "thermal", "title": "Taratura Termica"},
+                    {"id": "fw", "title": "FW Update"},
+                    {"id": "status", "title": "Dev. Status"},
+                ]
+            ),
+        )
 
     # Example of how a real fetch might look (commented):
     # def fetch_options_from_server(self):
@@ -82,7 +98,7 @@ def raspberry_pixmap(size=80):
     function to load an external PNG/SVG if you prefer.
     """
     path = "./assets/pi-logo50x70.png"
-    pix =  QPixmap(path)
+    pix = QPixmap(path)
     if not pix.isNull():
         return pix
     w = size
@@ -130,7 +146,7 @@ class KioskWindow(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground, False)
 
         # Nasconde il cursore direttamente
-        if(DEBUG == False):
+        if DEBUG == False:
             self.setCursor(Qt.BlankCursor)
 
         self.init_ui()
@@ -139,6 +155,8 @@ class KioskWindow(QWidget):
 
         # ask client to populate options (non-blocking)
         self.service_client.fetch_options()
+        fluke_port = find_fluke_port()
+        self.calibration_controller = CalibrationController(fluke_port=fluke_port)
 
     def init_ui(self):
         # global layout
@@ -181,27 +199,26 @@ class KioskWindow(QWidget):
         main_layout.addWidget(self.stack, stretch=1)
 
         # footer (small help text)
-        #footer = QLabel("Tocca una voce per procedere — usa il pulsante Indietro per tornare")
-        #footer.setAlignment(Qt.AlignCenter)
-        #footer.setObjectName("footer")
-        #main_layout.addWidget(footer)
+        # footer = QLabel("Tocca una voce per procedere — usa il pulsante Indietro per tornare")
+        # footer.setAlignment(Qt.AlignCenter)
+        # footer.setObjectName("footer")
+        # main_layout.addWidget(footer)
 
         # footer (small help text + quit button)
-        #footer_layout = QHBoxLayout()
-        #footer = QLabel("Tocca una voce per procedere — usa 'Quit' per uscire in sviluppo")
-        #footer.setAlignment(Qt.AlignCenter)
-        #footer.setObjectName("footer")
+        # footer_layout = QHBoxLayout()
+        # footer = QLabel("Tocca una voce per procedere — usa 'Quit' per uscire in sviluppo")
+        # footer.setAlignment(Qt.AlignCenter)
+        # footer.setObjectName("footer")
 
-        #quit_btn = QPushButton("Quit")
-        #quit_btn.setFixedHeight(40)
-        #quit_btn.setFixedWidth(100)
-        #quit_btn.clicked.connect(QApplication.instance().quit)
+        # quit_btn = QPushButton("Quit")
+        # quit_btn.setFixedHeight(40)
+        # quit_btn.setFixedWidth(100)
+        # quit_btn.clicked.connect(QApplication.instance().quit)
 
-        #footer_layout.addWidget(footer)
-        #footer_layout.addStretch(1)
-        #footer_layout.addWidget(quit_btn)
-        #main_layout.addLayout(footer_layout)
-
+        # footer_layout.addWidget(footer)
+        # footer_layout.addStretch(1)
+        # footer_layout.addWidget(quit_btn)
+        # main_layout.addLayout(footer_layout)
 
         # apply style
         self.apply_style()
@@ -301,11 +318,79 @@ class KioskWindow(QWidget):
         info.setWordWrap(True)
         v.addWidget(info, stretch=1)
 
-        # example action button
-        action = QPushButton("Esegui azione")
-        action.setFixedHeight(64)
-        action.clicked.connect(lambda: QMessageBox.information(self, "Azione", f"Azione per {option_id} eseguita"))
-        v.addWidget(action)
+        if option_id == "thermal":
+            action = QPushButton("Avvia Taratura Termica")
+            action.setFixedHeight(64)
+            v.addWidget(action)
+
+            fluke_steps = [(50.0, 1), (55.0, 1)]  # target 50°C per 2 minuti
+            steps_text = "\n".join(
+                [
+                    f"Step {i+1}: {t}°C per {d} min"
+                    for i, (t, d) in enumerate(fluke_steps)
+                ]
+            )
+            steps_label = QLabel(f"<b>Fluke steps:</b>\n{steps_text}")
+            steps_label.setAlignment(Qt.AlignCenter)
+            steps_label.setWordWrap(True)
+            v.addWidget(steps_label)
+
+            # Progress bar
+            self.progress = QProgressBar()
+            self.progress.setRange(0, 100)
+            self.progress.setValue(0)
+            self.progress.setVisible(True)
+            v.addWidget(self.progress)  # <<-- aggiunta al layout
+
+            # Collegamenti callback
+            self.calibration_controller.on_stable = (
+                lambda target, dur: QMessageBox.information(
+                    self,
+                    "info",
+                    "Attendere che il Fluke raggiunga la Temperatura desiderata",
+                )
+            )
+            self.calibration_controller.on_progress = lambda p: self.progress.setValue(
+                p
+            )
+            self.calibration_controller.on_finished = lambda: QMessageBox.information(
+                self, "Taratura", "Finita!"
+            )
+
+            self.calibration_controller.on_error = lambda msg: QMessageBox.critical(
+                self, "Errore Taratura", msg
+            )
+
+            self.calibration_controller.on_step_finished = lambda target, data, step, num_steps: QMessageBox.information(
+                self,
+                f"Step {step} completato",
+                f"Step a {target}°C terminato! Campioni: {len(data)} mancano ancora {num_steps - step} steps",
+            )
+
+            def start_calibration():
+                # controlla se il Fluke è presente
+                if self.calibration_controller.fluke is None:
+                    QMessageBox.critical(
+                        self, "Errore", "Fluke non disponibile! Taratura impossibile."
+                    )
+                    return
+
+                # parte la taratura con target (esempio 50°C)
+                self.calibration_controller.start_steps(fluke_steps=fluke_steps)
+
+            # Collegamento del pulsante
+            action.clicked.connect(start_calibration)
+
+        else:
+            # example action button
+            action = QPushButton("Esegui azione")
+            action.setFixedHeight(64)
+            action.clicked.connect(
+                lambda: QMessageBox.information(
+                    self, "Azione", f"Azione per {option_id} eseguita"
+                )
+            )
+            v.addWidget(action)
 
         # back button
         back = QPushButton("Indietro")
@@ -320,24 +405,29 @@ class KioskWindow(QWidget):
 # Application entrypoint
 # ------------------------
 def main():
+    signal.signal(signal.SIGINT, signal.SIG_DFL)
     app = QApplication(sys.argv)
 
     # create service client instance
     client = ServiceClient()
 
     # window
+    FULLSCREEN = False
     win = KioskWindow(client)
-    win.showFullScreen()
+    if FULLSCREEN:
+        win.showFullScreen()
+    else:
+        win.show()
 
     # optional: Esc to quit during development (remove for final kiosk)
     def on_key(evt):
         if evt.key() == Qt.Key_Escape:
             app.quit()
+
     app.installEventFilter(win)
 
     sys.exit(app.exec())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-

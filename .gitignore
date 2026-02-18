@@ -2,7 +2,7 @@
 __pycache__/
 *.py[codz]
 *$py.class
-
+calibration_suite/tarature/*
 # C extensions
 *.so
 
